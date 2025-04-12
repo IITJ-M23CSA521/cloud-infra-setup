@@ -1,0 +1,86 @@
+# run or terminal
+
+ssh-keygen -t rsa -f ~/.ssh/id_rsa -C ubuntu -N ""
+
+chmod +x delete_vms.sh
+chmod +x create-gcp-vms.sh
+./create-gcp-vms.sh
+
+
+#set ssh key 
+
+gcloud compute instances add-metadata k8s-master \
+  --zone=us-west4-c \
+  --metadata-from-file ssh-keys=$HOME/.ssh/id_rsa.pub
+
+# ssh-keygen -R 34.16.144.114
+ssh -i ~/.ssh/id_rsa ubuntu@34.16.144.114 
+
+34.16.144.114
+
+gcloud compute instances add-metadata k8s-worker-1 \
+  --zone=us-west4-c \
+  --metadata-from-file ssh-keys=$HOME/.ssh/id_rsa.pub
+
+gcloud compute instances add-metadata k8s-worker-2 \
+  --zone=us-west4-c \
+  --metadata-from-file ssh-keys=$HOME/.ssh/id_rsa.pub
+
+ssh-keygen -R 34.125.70.188  # IP of worker 1
+ssh-keygen -R 34.125.144.47  # IP of worker 2
+
+ssh -i ~/.ssh/id_rsa ubuntu@34.125.70.188; 
+ssh -i ~/.ssh/id_rsa ubuntu@34.125.144.47; 
+
+# Verify the accesss 
+#run
+ansible all -m ping
+
+#run
+ansible-playbook playbooks/common.yml
+ansible-playbook playbooks/master.yml
+ansible-playbook playbooks/worker.yml
+
+----------------------------------------------------------
+Kubernetes Dashboard with Metrics
+---------------------------------------------------------
+curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+helm version
+
+helm upgrade --install ingress-nginx ingress-nginx \
+  --repo https://kubernetes.github.io/ingress-nginx \
+  --namespace ingress-nginx \
+  --create-namespace \
+  -f nginx.yaml
+
+gcloud compute instances add-tags k8s-master \
+  --tags=k8s-master \
+  --zone=us-west4-c
+
+gcloud compute firewall-rules create allow-nodeport-range \
+  --allow tcp:30000-32767 \
+  --source-ranges=0.0.0.0/0 \
+  --target-tags=k8s-master \
+  --network=default
+
+gcloud compute instances describe k8s-master --zone=us-west4-c --format="get(tags.items)"
+
+
+# Login into Kubernetes Dashboard
+https://34.16.144.114:31746
+
+Get the Token - 
+kubectl -n kubernetes-dashboard create token admin-user
+and login using token 
+
+eyJhbGciOiJSUzI1NiIsImtpZCI6IkpHZEc4SG5EOEJWOHBBNXd2MXQ1SWVvUkUwNGxJek5pYzlmSnYydlRjZ1EifQ.eyJhdWQiOlsiaHR0cHM6Ly9rdWJlcm5ldGVzLmRlZmF1bHQuc3ZjLmNsdXN0ZXIubG9jYWwiXSwiZXhwIjoxNzQ0MjgyODYxLCJpYXQiOjE3NDQyNzkyNjEsImlzcyI6Imh0dHBzOi8va3ViZXJuZXRlcy5kZWZhdWx0LnN2Yy5jbHVzdGVyLmxvY2FsIiwianRpIjoiZWZkNDgzNDktMGRmZC00Yjg1LWJhMDYtZTNhM2RmMWQ5YWM2Iiwia3ViZXJuZXRlcy5pbyI6eyJuYW1lc3BhY2UiOiJrdWJlcm5ldGVzLWRhc2hib2FyZCIsInNlcnZpY2VhY2NvdW50Ijp7Im5hbWUiOiJhZG1pbi11c2VyIiwidWlkIjoiMzdjYTdlZGYtNWIwZS00M2MxLWI4ZGMtYjI1MjljY2MyOTE3In19LCJuYmYiOjE3NDQyNzkyNjEsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDprdWJlcm5ldGVzLWRhc2hib2FyZDphZG1pbi11c2VyIn0.mVyXVRTM0pRU6vVvSTxoqIpEjCPG3f3-feqqScmVUSv4izXjfv9d-j1-8BImBGnBhJM1Enj3fdBAsmgmuUJCDexf15y1LQz8agoVXCrjBl5ik-qJog2RcRHb2-xzZ_2J5P24gXkNj-PhY60716mWiV7aWO12LTsWanxc5ShhkGqPQxLdiCxNmj7b2D5hl1IeoHpZXjdnARRxtNtRRGuBPt_Zi_mK1lGaJW7YMOuOJiocBp0aw_xB5R9k3MOtN45Q_rAIPq2AzD5JYCdXWpB1tH7wm2BuoiokYLfOW5uH5omVgpI7Zx8ULE7SIqfq1w2RlE5DFbsK2ZS8rd5K4Cvr3A
+
+URL
+
+http://34.16.144.114:30080
+
+
+curl -X POST "http://34.125.167.150:8000/predict" \
+-H "Content-Type: application/json" \
+-d '{"timestamp": "2025-04-10T14:30:00"}'

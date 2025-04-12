@@ -1,0 +1,20 @@
+- name: Join Kubernetes workers
+  hosts: workers
+  become: yes
+  tasks:
+    - name: Get join script content from master
+      delegate_to: k8s-master
+      slurp:
+        src: /home/ubuntu/join.sh
+      register: join_script
+
+    - name: Write join script to worker node
+      copy:
+        content: "{{ join_script.content | b64decode }}"
+        dest: /home/ubuntu/join.sh
+        mode: "0755"
+        owner: root
+        group: root
+
+    - name: Run join script
+      command: bash /home/ubuntu/join.sh

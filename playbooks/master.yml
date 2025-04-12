@@ -1,0 +1,44 @@
+- name: Initialize Kubernetes master
+  hosts: master
+  become: yes
+  tasks:
+    - name: Initialize cluster with kubeadm
+      command: kubeadm init --pod-network-cidr=10.244.0.0/16
+      register: kubeadm_output
+      failed_when: false # Prevents hard failure
+      changed_when: "'initialized' in kubeadm_output.stdout or 'This node has joined the cluster' in kubeadm_output.stdout"
+
+    - name: Save kubeadm join command
+      command: kubeadm token create --print-join-command
+      register: join_command
+
+    - name: Write join command to file
+      copy:
+        content: "{{ join_command.stdout }}"
+        dest: /home/ubuntu/join.sh
+        mode: "0755"
+        owner: ubuntu
+        group: ubuntu
+
+    - name: Create .kube directory for ubuntu
+      file:
+        path: /home/ubuntu/.kube
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: "0755"
+
+    - name: Copy admin kubeconfig to user's kube folder
+      copy:
+        src: /etc/kubernetes/admin.conf
+        dest: /home/ubuntu/.kube/config
+        remote_src: yes
+        owner: ubuntu
+        group: ubuntu
+        mode: "0644"
+
+    - name: Install Flannel network plugin
+      become_user: ubuntu
+      environment:
+        KUBECONFIG: /home/ubuntu/.kube/config
+      command: kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
